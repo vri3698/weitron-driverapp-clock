@@ -1,0 +1,9 @@
+{
+  "name": "Driver Time Tracker",
+  "description": "A mobile-optimized web app for drivers to clock in and out with location and photo verification, supporting offline mode and Google Sheets integration.",
+  "requestFramePermissions": [
+    "camera",
+    "geolocation",
+    "notifications"
+  ]
+}

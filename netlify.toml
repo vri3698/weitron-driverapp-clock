@@ -1,0 +1,24 @@
+[build]
+  # Build the Vite frontend from the frontend/ directory
+  command   = "cd frontend && npm install && npm run build"
+  publish   = "frontend/dist"
+
+[functions]
+  # Netlify Functions live here; they handle push notification APIs
+  directory = "netlify/functions"
+  node_bundler = "esbuild"
+
+[build.environment]
+  NODE_VERSION = "20"
+
+# Route /api/* → /.netlify/functions/* so the frontend calls /api/subscribe etc.
+[[redirects]]
+  from   = "/api/*"
+  to     = "/.netlify/functions/:splat"
+  status = 200
+
+# SPA fallback — send all unmatched paths to index.html
+[[redirects]]
+  from   = "/*"
+  to     = "/index.html"
+  status = 200
