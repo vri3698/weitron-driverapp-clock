@@ -1,3 +1,5 @@
+import { STORAGE_KEYS } from '../constants';
+
 // Push notification service — permission, subscription, status
 
 function urlBase64ToUint8Array(base64String: string): Uint8Array {
@@ -39,10 +41,11 @@ export async function requestAndSubscribe(): Promise<{ ok: boolean; error?: stri
       applicationServerKey: urlBase64ToUint8Array(publicKey),
     });
 
+    const employeeId = localStorage.getItem(STORAGE_KEYS.EMPLOYEE_ID) ?? '';
     const subRes = await fetch('/api/subscribe', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(subscription),
+      body: JSON.stringify({ subscription, employeeId }),
     });
     if (!subRes.ok) throw new Error('Failed to register subscription');
 

@@ -24,7 +24,7 @@ interface ShiftState {
 }
 
 const BREAK_MS = 30 * 60 * 1000;
-const BREAK_REMINDER_MS = 3.5 * 60 * 60 * 1000;
+const BREAK_REMINDER_MS = 10 * 60 * 1000;//changed to 10 mins for testing - should be 3.5*60*60*1000
 
 function getTodayKey(): string {
   const now = new Date();
@@ -88,12 +88,12 @@ function applyShiftTransition(prev: ShiftState, action: ActionType, timestamp: n
     };
   }
 
-  // Final clock-out after returning from break completes the day
+  // Next clock out
   if (prev.postBreakClockInAt) {
     return {
       ...prev,
-      phase: 'day_complete',
-      dayCompletedAt: timestamp,
+      phase: 'needs_clock_in',
+      dayCompletedAt: undefined
     };
   }
 

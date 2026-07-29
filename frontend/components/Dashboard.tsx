@@ -157,125 +157,149 @@ export function Dashboard({
     onActionSelect(nextAction);
   };
 
-  const breakRemaining = isOnBreak && breakEndsAt ? formatRemaining(breakEndsAt - now) : '00:00';
+    const breakRemaining = isOnBreak && breakEndsAt ? formatRemaining(breakEndsAt - now) : '00:00';
   const hasFinishedDay = nextAction === null && !isOnBreak;
 
   return (
-    <div className="min-h-dvh bg-[radial-gradient(circle_at_top,_rgba(99,102,241,0.25),_transparent_55%)] bg-slate-950 p-4 text-white">
-      <div className="mx-auto flex max-w-md flex-col gap-4 rounded-[28px] border border-white/10 bg-slate-900/80 p-4 shadow-2xl shadow-black/30 backdrop-blur">
-        <div className="flex items-start justify-between rounded-2xl bg-slate-800/80 p-4">
-          <div>
-            <p className="text-sm text-slate-400">{employee.id}</p>
-            <p className="text-lg font-semibold">{employee.name}</p>
-            {employee.locationName ? (
-              <div className="mt-1 flex items-center gap-2 text-sm text-slate-400">
-                <MapPin size={14} />
-                {employee.locationName}
-              </div>
-            ) : null}
-          </div>
-          <button onClick={onLogout} className="rounded-full border border-slate-700 px-3 py-1.5 text-sm text-slate-300">
-            Sign out
-          </button>
-        </div>
-
-        <div className={`flex items-center gap-2 rounded-2xl px-3 py-2 text-sm ${isOnline ? 'bg-emerald-900/40 text-emerald-300' : 'bg-amber-900/40 text-amber-300'}`}>
-          {isOnline ? <Wifi size={16} /> : <WifiOff size={16} />}
-          {isOnline ? 'Online and ready' : 'Offline — will sync later'}
-        </div>
-
-        {statusMessage ? (
-          <div className="flex items-center gap-2 rounded-2xl bg-emerald-900/40 px-3 py-2 text-sm text-emerald-300">
-            <CheckCircle2 size={16} />
-            {statusMessage}
-          </div>
-        ) : null}
-
-        {!setupComplete || !localStorage.getItem(setupDoneKey) ? (
-          <div className="rounded-2xl border border-indigo-700/40 bg-indigo-950/40 p-4">
-            <p className="mb-2 text-sm font-semibold text-indigo-300">Complete setup before first clock action</p>
-            <div className="grid gap-2">
-              {!locationReady ? (
-                <button
-                  onClick={() => void handleEnableLocation()}
-                  className="flex items-center justify-center gap-2 rounded-2xl bg-slate-700/80 px-3 py-2.5 text-sm font-medium text-slate-200 hover:bg-slate-700"
-                >
-                  <MapPin size={15} /> Turn on location
-                </button>
-              ) : null}
-              {!notifReady && !showIOSInstallPrompt ? (
-                <button
-                  onClick={() => void handleEnableNotifications()}
-                  disabled={notifStatus === 'loading'}
-                  className="flex items-center justify-center gap-2 rounded-2xl bg-slate-700/80 px-3 py-2.5 text-sm font-medium text-slate-200 hover:bg-slate-700 disabled:opacity-60"
-                >
-                  <Bell size={15} />
-                  {notifStatus === 'loading' ? 'Setting up…' : 'Turn on notifications'}
-                </button>
-              ) : null}
-            </div>
-            {showIOSInstallPrompt ? (
-              <div className="mt-3 rounded-xl border border-indigo-800/50 bg-slate-900/40 p-3">
-                <div className="mb-2 flex items-center gap-2 text-sm font-semibold text-indigo-300">
-                  <Share size={15} />
-                  Add to Home Screen for notifications
+    <div className="min-h-dvh bg-[radial-gradient(circle_at_top,_rgba(99,102,241,0.18),_transparent_55%)] bg-slate-950 px-4 py-3 text-white">
+      <div className="mx-auto flex min-h-[calc(100dvh-1.5rem)] max-w-md items-center justify-center">
+        <div className="flex w-full max-h-[calc(100dvh-1.5rem)] flex-col gap-3 overflow-y-auto rounded-[28px] border border-white/10 bg-slate-900/80 p-4 shadow-2xl shadow-black/30 backdrop-blur">
+          {/* Header: employee + sign out */}
+          <div className="flex items-start justify-between rounded-2xl bg-slate-800/80 p-3">
+            <div>
+              <p className="text-xs text-slate-400">{employee.id}</p>
+              <p className="text-lg font-semibold">{employee.name}</p>
+              {employee.locationName ? (
+                <div className="mt-1 flex items-center gap-2 text-xs text-slate-400">
+                  <MapPin size={14} />
+                  {employee.locationName}
                 </div>
-                <ol className="space-y-1 text-xs text-slate-400">
-                  <li>1. Tap Share in Safari</li>
-                  <li>2. Tap Add to Home Screen</li>
-                  <li>3. Open the app from home screen</li>
-                  <li>4. Return here and enable notifications</li>
-                </ol>
-              </div>
-            ) : null}
-          </div>
-        ) : null}
-
-        {isOnBreak ? (
-          <div className="rounded-2xl border border-amber-600/40 bg-amber-950/30 p-4">
-            <div className="mb-2 flex items-center gap-2 text-sm font-semibold text-amber-300">
-              <Timer size={16} />
-              Break in progress
+              ) : null}
             </div>
-            <p className="mb-3 text-3xl font-bold tracking-wider text-amber-200">{breakRemaining}</p>
-            <p className="mb-3 text-xs text-amber-100/80">30-minute break timer is running.</p>
             <button
-              onClick={onEndBreak}
-              className="w-full rounded-2xl bg-indigo-600 px-3 py-2.5 text-sm font-semibold text-white transition hover:bg-indigo-500"
+              onClick={onLogout}
+              className="rounded-full border border-slate-700 px-3 py-1.5 text-xs text-slate-300"
             >
-              End break
+              Sign out
             </button>
           </div>
-        ) : (
-          <div className="rounded-2xl border border-slate-800 bg-slate-800/70 p-3">
-            <div className="mb-2 flex items-center gap-2 text-sm font-medium text-slate-300">
-              <Clock3 size={16} />
-              Driver action
-            </div>
-            {hasFinishedDay ? (
-              <p className="rounded-xl bg-emerald-900/30 px-3 py-3 text-center text-sm text-emerald-300">
-                Day complete. You can clock in again tomorrow.
-              </p>
-            ) : (
-              <button
-                onClick={handleActionClick}
-                disabled={actionsLocked || !nextAction}
-                className={`flex w-full items-center justify-center gap-2 rounded-2xl px-3 py-3 font-semibold transition disabled:cursor-not-allowed disabled:opacity-60 ${
-                  nextAction === 'Clock In'
-                    ? 'bg-emerald-600 hover:bg-emerald-500'
-                    : 'bg-rose-600 hover:bg-rose-500'
-                }`}
-              >
-                {nextAction === 'Clock In' ? <LogIn size={18} /> : <LogOut size={18} />}
-                {nextAction ?? 'Unavailable'}
-              </button>
-            )}
-          </div>
-        )}
 
-        {setupMsg ? (
-          <p className="text-center text-xs text-slate-400">{setupMsg}</p>
-        ) : null}
+          {/* Online/offline status */}
+          <div
+            className={`flex items-center gap-2 rounded-2xl px-3 py-2 text-xs ${
+              isOnline ? 'bg-emerald-900/40 text-emerald-300' : 'bg-amber-900/40 text-amber-300'
+            }`}
+          >
+            {isOnline ? <Wifi size={14} /> : <WifiOff size={14} />}
+            {isOnline ? 'Online and ready' : 'Offline — will sync later'}
+          </div>
+
+          {/* Status message from actions */}
+          {statusMessage ? (
+            <div className="flex items-center gap-2 rounded-2xl bg-emerald-900/40 px-3 py-2 text-xs text-emerald-300">
+              <CheckCircle2 size={14} />
+              {statusMessage}
+            </div>
+          ) : null}
+
+          {/* Setup card */}
+          {!setupComplete || !localStorage.getItem(setupDoneKey) ? (
+            <div className="rounded-2xl border border-indigo-700/40 bg-indigo-950/40 p-3">
+              <p className="mb-2 text-xs font-semibold text-indigo-300">
+                Complete setup before first clock action
+              </p>
+              <div className="grid gap-2">
+                {!locationReady ? (
+                  <button
+                    onClick={() => void handleEnableLocation()}
+                    className="flex items-center justify-center gap-2 rounded-2xl bg-slate-700/80 px-3 py-2 text-xs font-medium text-slate-200 hover:bg-slate-700"
+                  >
+                    <MapPin size={13} />
+                    Turn on location
+                  </button>
+                ) : null}
+
+                {!notifReady && !showIOSInstallPrompt ? (
+                  <button
+                    onClick={() => void handleEnableNotifications()}
+                    disabled={notifStatus === 'loading'}
+                    className="flex items-center justify-center gap-2 rounded-2xl bg-slate-700/80 px-3 py-2 text-xs font-medium text-slate-200 hover:bg-slate-700 disabled:opacity-60"
+                  >
+                    <Bell size={13} />
+                    {notifStatus === 'loading' ? 'Setting up…' : 'Turn on notifications'}
+                  </button>
+                ) : null}
+              </div>
+
+              {showIOSInstallPrompt ? (
+                <div className="mt-3 rounded-xl border border-indigo-800/50 bg-slate-900/40 p-3">
+                  <div className="mb-2 flex items-center gap-2 text-xs font-semibold text-indigo-300">
+                    <Share size={13} />
+                    Add to Home Screen for notifications
+                  </div>
+                  <ol className="space-y-1 text-[11px] text-slate-400">
+                    <li>1. Tap Share in Safari</li>
+                    <li>2. Tap Add to Home Screen</li>
+                    <li>3. Open the app from home screen</li>
+                    <li>4. Return here and enable notifications</li>
+                  </ol>
+                </div>
+              ) : null}
+            </div>
+          ) : null}
+
+          {/* Break vs action card */}
+          {isOnBreak ? (
+            <div className="rounded-2xl border border-amber-600/40 bg-amber-950/30 p-3">
+              <div className="mb-2 flex items-center gap-2 text-xs font-semibold text-amber-300">
+                <Timer size={14} />
+                Break in progress
+              </div>
+              <p className="mb-2 text-2xl font-bold tracking-wider text-amber-200">
+                {breakRemaining}
+              </p>
+              <p className="mb-3 text-[11px] text-amber-100/80">
+                30-minute break timer is running.
+              </p>
+              <button
+                onClick={onEndBreak}
+                className="w-full rounded-2xl bg-indigo-600 px-3 py-2 text-xs font-semibold text-white transition hover:bg-indigo-500"
+              >
+                End break
+              </button>
+            </div>
+          ) : (
+            <div className="rounded-2xl border border-slate-800 bg-slate-800/70 p-3">
+              <div className="mb-2 flex items-center gap-2 text-xs font-medium text-slate-300">
+                <Clock3 size={14} />
+                Driver action
+              </div>
+              {hasFinishedDay ? (
+                <p className="rounded-xl bg-emerald-900/30 px-3 py-3 text-center text-xs text-emerald-300">
+                  Day complete. You can clock in again tomorrow.
+                </p>
+              ) : (
+                <button
+                  onClick={handleActionClick}
+                  disabled={actionsLocked || !nextAction}
+                  className={`flex w-full items-center justify-center gap-2 rounded-2xl px-3 py-3 text-sm font-semibold transition disabled:cursor-not-allowed disabled:opacity-60 ${
+                    nextAction === 'Clock In'
+                      ? 'bg-emerald-600 hover:bg-emerald-500'
+                      : 'bg-rose-600 hover:bg-rose-500'
+                  }`}
+                >
+                  {nextAction === 'Clock In' ? <LogIn size={16} /> : <LogOut size={16} />}
+                  {nextAction ?? 'Unavailable'}
+                </button>
+              )}
+            </div>
+          )}
+
+          {/* Setup message line */}
+          {setupMsg ? (
+            <p className="text-center text-[11px] text-slate-400">{setupMsg}</p>
+          ) : null}
+        </div>
       </div>
     </div>
   );

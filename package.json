@@ -1,1 +1,15 @@
-{"name":"driver-time-tracker","workspaces":["frontend","backend"],"scripts":{"dev-frontend":"npm run dev --prefix frontend","dev-backend":"npm run dev --prefix backend","dev":"concurrently \"npm run dev-frontend\" \"npm run dev-backend\""},"dependencies":{"@netlify/blobs":"^8.1.0","web-push":"^3.6.7"},"devDependencies":{"concurrently":"latest"}}
+{
+    "name":  "driver-time-tracker",
+    "scripts":  {
+                    "dev-frontend":  "npm run dev --prefix frontend",
+                    "dev-backend":  "npm run dev --prefix backend",
+                    "dev":  "concurrently \"npm run dev-frontend\" \"npm run dev-backend\""
+                },
+    "dependencies":  {
+                         "@netlify/blobs":  "^8.1.0",
+                         "web-push":  "^3.6.7"
+                     },
+    "devDependencies":  {
+                            "concurrently":  "latest"
+                        }
+}

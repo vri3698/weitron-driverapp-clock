@@ -13,7 +13,7 @@ export const handler = async (event) => {
   if (event.httpMethod !== 'POST') return { statusCode: 405, body: 'Method Not Allowed' };
 
   try {
-    const { adminKey, title, body, url } = JSON.parse(event.body ?? '{}');
+    const { adminKey, title, body, url, employeeId } = JSON.parse(event.body ?? '{}');
 
     if (!adminKey || adminKey !== process.env.ADMIN_PUSH_KEY) {
       return { statusCode: 403, headers: cors, body: JSON.stringify({ error: 'Unauthorized' }) };
@@ -41,8 +41,16 @@ export const handler = async (event) => {
         try {
           const raw = await store.get(blob.key);
           if (!raw) return;
-          const sub = JSON.parse(raw);
-          await webpush.sendNotification(sub, JSON.stringify({ title: title.trim(), body: body?.trim() ?? '', url: url ?? '/' }));
+          const parsed = JSON.parse(raw);
+          const envelope = parsed?.subscription ? parsed : { subscription: parsed, employeeId: '' };
+          const targetEmployee = String(employeeId ?? '').trim();
+          const subEmployee = String(envelope.employeeId ?? '').trim();
+          if (targetEmployee && subEmployee !== targetEmployee) return;
+          if (!envelope.subscription?.endpoint) return;
+          await webpush.sendNotification(
+            envelope.subscription,
+            JSON.stringify({ title: title.trim(), body: body?.trim() ?? '', url: url ?? '/' })
+          );
           sent++;
         } catch (err) {
           failed++;

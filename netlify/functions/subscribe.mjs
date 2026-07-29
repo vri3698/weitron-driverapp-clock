@@ -12,7 +12,9 @@ export const handler = async (event) => {
   if (event.httpMethod !== 'POST') return { statusCode: 405, body: 'Method Not Allowed' };
 
   try {
-    const subscription = JSON.parse(event.body);
+    const payload = JSON.parse(event.body ?? '{}');
+    const subscription = payload?.subscription?.endpoint ? payload.subscription : payload;
+    const employeeId = String(payload?.employeeId ?? '').trim();
     if (!subscription?.endpoint) return { statusCode: 400, body: JSON.stringify({ error: 'Invalid subscription' }) };
 
     const store = getStore({
@@ -22,7 +24,11 @@ export const handler = async (event) => {
     });
     // Use a stable key derived from the endpoint URL
     const id = btoa(subscription.endpoint).replace(/[^a-zA-Z0-9]/g, '').slice(0, 64);
-    await store.set(id, JSON.stringify(subscription));
+    await store.set(id, JSON.stringify({
+      subscription,
+      employeeId,
+      createdAt: new Date().toISOString(),
+    }));
 
     return {
       statusCode: 200,

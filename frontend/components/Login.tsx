@@ -42,8 +42,8 @@ export function Login({ onLogin }: LoginProps) {
           </div>
 
           <div className="text-center">
-            <p className="text-sm uppercase tracking-[0.3em] text-slate-400">Driver Portal</p>
-            <h1 className="mt-3 text-3xl font-semibold text-white">Enter your ID to access timesheets</h1>
+            <p className="text-sm uppercase tracking-[0.3em] text-slate-400">Weitron Driver Portal</p>
+            <h1 className="mt-3 text-3xl font-semibold text-white">Enter your ID</h1>
           </div>
 
           <form onSubmit={handleSubmit} className="mt-8 space-y-4">
