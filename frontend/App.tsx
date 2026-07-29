@@ -24,7 +24,7 @@ interface ShiftState {
 }
 
 const BREAK_MS = 30 * 60 * 1000;
-const BREAK_REMINDER_MS = 10 * 60 * 1000;//changed to 10 mins for testing - should be 3.5*60*60*1000
+const BREAK_REMINDER_MS = 1 * 60 * 1000;//changed to 10 mins for testing - should be 3.5*60*60*1000
 
 function getTodayKey(): string {
   const now = new Date();
