@@ -11,7 +11,7 @@ import { startLocationWatch, stopLocationWatch, ensureLocationPermission } from 
 import { isSubscribed, requestAndSubscribe } from './services/notifications';
 
 const BREAK_MS = 30 * 60 * 1000;
-const DEFAULT_BREAK_REMINDER_MS = 3.5 * 60 * 60 * 1000;
+const DEFAULT_BREAK_REMINDER_MS = 2 * 60 * 1000;//change to 3.5 hrs after deployment
 
 function getDateKey(timestamp = Date.now()): string {
   const date = new Date(timestamp);
