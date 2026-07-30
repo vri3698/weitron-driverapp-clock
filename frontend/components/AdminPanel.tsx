@@ -63,7 +63,7 @@ export function AdminPanel() {
                 value={adminKey}
                 onChange={(e) => setAdminKey(e.target.value)}
                 placeholder="Enter admin key"
-                className="mt-2 w-full rounded-2xl border border-slate-700 bg-slate-950/90 px-4 py-3 text-white outline-none focus:border-indigo-500"
+                className="mt-2 w-full rounded-2xl border border-slate-300 bg-white px-4 py-3 font-medium text-slate-900 outline-none placeholder:text-slate-400 focus:border-indigo-600 focus:ring-2 focus:ring-indigo-500/20"
               />
             </label>
             <button
@@ -86,7 +86,7 @@ export function AdminPanel() {
                 value={title}
                 onChange={(e) => setTitle(e.target.value)}
                 placeholder="e.g. Clock in reminder"
-                className="mt-2 w-full rounded-2xl border border-slate-700 bg-slate-950/90 px-4 py-3 text-white outline-none focus:border-indigo-500"
+                className="mt-2 w-full rounded-2xl border border-slate-300 bg-white px-4 py-3 font-medium text-slate-900 outline-none placeholder:text-slate-400 focus:border-indigo-600 focus:ring-2 focus:ring-indigo-500/20"
               />
             </label>
 
@@ -97,7 +97,7 @@ export function AdminPanel() {
                 onChange={(e) => setBody(e.target.value)}
                 placeholder="Optional message body…"
                 rows={3}
-                className="mt-2 w-full rounded-2xl border border-slate-700 bg-slate-950/90 px-4 py-3 text-white outline-none focus:border-indigo-500 resize-none"
+                className="mt-2 w-full rounded-2xl border border-slate-300 bg-white px-4 py-3 font-medium text-slate-900 outline-none placeholder:text-slate-400 focus:border-indigo-600 focus:ring-2 focus:ring-indigo-500/20 resize-none"
               />
             </label>
 

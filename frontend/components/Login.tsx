@@ -97,7 +97,7 @@ export function Login({ onLogin }: LoginProps) {
                 pattern="[0-9]*"
                 enterKeyHint="done"
                 aria-required="true"
-                className="mt-2 w-full rounded-[20px] border border-slate-600 bg-slate-950/92 px-4 py-3 text-base text-slate-100 outline-none ring-0 transition placeholder:text-slate-500 focus:border-indigo-500"
+                className="mt-2 w-full rounded-[20px] border border-slate-300 bg-white px-4 py-3 text-base font-semibold text-slate-900 outline-none ring-0 transition placeholder:text-slate-400 focus:border-indigo-600 focus:ring-2 focus:ring-indigo-500/20"
               />
             </label>
 
