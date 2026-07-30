@@ -1,4 +1,4 @@
-import { ClockEntry } from '../types';
+import { ClockEntry, ShiftState } from '../types';
 import { GAS_WEB_APP_URL, STORAGE_KEYS } from '../constants';
 
 const DEMO_EMPLOYEES: Record<string, string> = {
@@ -8,9 +8,8 @@ const DEMO_EMPLOYEES: Record<string, string> = {
 };
 
 export async function verifyEmployeeAPI(
-  employeeId: string
+  employeeId: string,
 ): Promise<{ valid: boolean; name?: string; locationName?: string; error?: string }> {
-  // Demo mode when no GAS URL is configured
   if (!GAS_WEB_APP_URL) {
     const id = employeeId.trim().toUpperCase();
     const name = DEMO_EMPLOYEES[id];
@@ -20,8 +19,6 @@ export async function verifyEmployeeAPI(
   }
 
   try {
-    // Calls /api/verify — handled server-side (Vite proxy in dev, Netlify function in prod).
-    // No browser CORS restrictions apply.
     const res = await fetch('/api/verify', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
@@ -45,17 +42,15 @@ interface LegacyClockEntryShape {
 }
 
 export async function syncEntryToServer(entry: ClockEntry, options?: SyncEntryOptions): Promise<boolean> {
-  // Demo mode — treat as synced
   if (!GAS_WEB_APP_URL) return true;
 
   try {
     const legacy = entry as ClockEntry & LegacyClockEntryShape;
     const lat = entry.location?.lat ?? legacy.lat ?? '';
     const lng = entry.location?.lng ?? legacy.lng ?? '';
-    const address = entry.location?.address ?? legacy.address ?? '';
+    const address = (entry.location?.address ?? legacy.address ?? '').trim() || 'Not found';
     const locationName = entry.locationName ?? localStorage.getItem(STORAGE_KEYS.EMPLOYEE_LOCATION) ?? '';
 
-    // Calls /api/clock — handled server-side (Vite proxy in dev, Netlify function in prod).
     const res = await fetch('/api/clock', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
@@ -78,10 +73,30 @@ export async function syncEntryToServer(entry: ClockEntry, options?: SyncEntryOp
         },
       }),
     });
+
     if (!res.ok) return false;
     const data = (await res.json()) as { success?: boolean };
     return data.success === true;
   } catch {
     return false;
+  }
+}
+
+export async function fetchShiftState(employeeId: string): Promise<ShiftState | null> {
+  if (!GAS_WEB_APP_URL) return null;
+
+  try {
+    const res = await fetch('/api/shift-state', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ action: 'shiftState', employeeId }),
+    });
+
+    if (!res.ok) return null;
+    const data = (await res.json()) as ShiftState & { success?: boolean };
+    if (data.success === false) return null;
+    return data;
+  } catch {
+    return null;
   }
 }

@@ -1,95 +1,121 @@
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Login } from './components/Login';
 import { Dashboard } from './components/Dashboard';
 import { ActionFlow } from './components/ActionFlow';
 import { AdminPanel } from './components/AdminPanel';
-import { ActionType, ClockEntry, Employee } from './types';
+import { ActionType, ClockEntry, Employee, ShiftState } from './types';
 import { STORAGE_KEYS } from './constants';
 import { storageService } from './services/storage';
-import { syncEntryToServer } from './services/api';
-import { startLocationWatch, stopLocationWatch } from './services/device';
-import { showLocalNotification } from './services/notifications';
-
-type ShiftPhase = 'needs_clock_in' | 'needs_clock_out' | 'on_break' | 'day_complete';
-
-interface ShiftState {
-  dateKey: string;
-  phase: ShiftPhase;
-  firstClockInAt?: number;
-  breakReminderAt?: number;
-  breakReminderSent?: boolean;
-  breakStartedAt?: number;
-  postBreakClockInAt?: number;
-  dayCompletedAt?: number;
-}
+import { fetchShiftState, syncEntryToServer } from './services/api';
+import { startLocationWatch, stopLocationWatch, ensureLocationPermission } from './services/device';
+import { isSubscribed, requestAndSubscribe } from './services/notifications';
 
 const BREAK_MS = 30 * 60 * 1000;
-const BREAK_REMINDER_MS = 1 * 60 * 1000;//changed to 10 mins for testing - should be 3.5*60*60*1000
+const DEFAULT_BREAK_REMINDER_MS = 3.5 * 60 * 60 * 1000;
 
-function getTodayKey(): string {
-  const now = new Date();
-  const year = now.getFullYear();
-  const month = String(now.getMonth() + 1).padStart(2, '0');
-  const day = String(now.getDate()).padStart(2, '0');
-  return `${year}-${month}-${day}`;
+function getDateKey(timestamp = Date.now()): string {
+  const date = new Date(timestamp);
+  const y = date.getFullYear();
+  const m = String(date.getMonth() + 1).padStart(2, '0');
+  const d = String(date.getDate()).padStart(2, '0');
+  return `${y}-${m}-${d}`;
 }
 
 function getShiftStorageKey(employeeId: string): string {
   return `driver_shift_state_${employeeId}`;
 }
 
-function createInitialShiftState(): ShiftState {
-  return { dateKey: getTodayKey(), phase: 'needs_clock_in', breakReminderSent: false };
+function createInitialShiftState(timestamp = Date.now()): ShiftState {
+  return {
+    dateKey: getDateKey(timestamp),
+    phase: 'needs_clock_in',
+    breakReminderSent: false,
+  };
 }
 
 function normalizeShiftState(raw: string | null): ShiftState {
   if (!raw) return createInitialShiftState();
   try {
-    const parsed = JSON.parse(raw) as ShiftState;
-    if (!parsed?.dateKey || parsed.dateKey !== getTodayKey()) return createInitialShiftState();
-    if (!parsed.phase) return createInitialShiftState();
-    return parsed;
+    const parsed = JSON.parse(raw) as Partial<ShiftState>;
+    if (!parsed || !parsed.phase) return createInitialShiftState();
+    return {
+      dateKey: parsed.dateKey || getDateKey(),
+      phase: parsed.phase,
+      firstClockInAt: parsed.firstClockInAt,
+      effectiveShiftStartAt: parsed.effectiveShiftStartAt,
+      breakReminderAt: parsed.breakReminderAt,
+      breakReminderSent: Boolean(parsed.breakReminderSent),
+      breakStartedAt: parsed.breakStartedAt,
+      postBreakClockInAt: parsed.postBreakClockInAt,
+      dayCompletedAt: parsed.dayCompletedAt,
+      source: parsed.source || 'local',
+    };
   } catch {
     return createInitialShiftState();
   }
 }
 
 function applyShiftTransition(prev: ShiftState, action: ActionType, timestamp: number): ShiftState {
+  const current = prev?.dateKey ? prev : createInitialShiftState(timestamp);
+  const effectiveShiftStartAt = current.effectiveShiftStartAt ?? current.firstClockInAt ?? timestamp;
+
   if (action === 'Clock In') {
-    if (!prev.firstClockInAt) {
+    if (!current.firstClockInAt) {
       return {
-        ...prev,
+        ...current,
+        dateKey: getDateKey(timestamp),
         phase: 'needs_clock_out',
         firstClockInAt: timestamp,
-        breakReminderAt: timestamp + BREAK_REMINDER_MS,
+        effectiveShiftStartAt: timestamp,
+        breakReminderAt: timestamp + DEFAULT_BREAK_REMINDER_MS,
         breakReminderSent: false,
+        breakStartedAt: undefined,
+        postBreakClockInAt: undefined,
+        dayCompletedAt: undefined,
+        source: 'local',
       };
     }
 
     return {
-      ...prev,
+      ...current,
       phase: 'needs_clock_out',
+      effectiveShiftStartAt,
+      breakReminderAt: current.breakReminderAt ?? effectiveShiftStartAt + DEFAULT_BREAK_REMINDER_MS,
       postBreakClockInAt: timestamp,
+      breakStartedAt: undefined,
+      source: 'local',
     };
   }
 
   if (action === 'Clock Out') {
-    // First clock-out after first clock-in starts break mode
-    if (!prev.breakStartedAt && prev.firstClockInAt && !prev.postBreakClockInAt) {
+    if (!current.breakStartedAt && current.firstClockInAt && !current.postBreakClockInAt) {
       return {
-        ...prev,
+        ...current,
         phase: 'on_break',
         breakStartedAt: timestamp,
+        source: 'local',
       };
     }
 
     return {
-      ...prev,
+      ...current,
       phase: 'needs_clock_in',
+      dayCompletedAt: timestamp,
+      source: 'local',
     };
   }
 
-  return prev;
+  return current;
+}
+
+function mergeShiftState(localState: ShiftState, remoteState: ShiftState | null): ShiftState {
+  if (!remoteState) return localState;
+  return {
+    ...localState,
+    ...remoteState,
+    dateKey: remoteState.dateKey || localState.dateKey,
+    source: remoteState.source || 'server',
+  };
 }
 
 export default function App() {
@@ -103,18 +129,50 @@ export default function App() {
   const statusTimerRef = useRef<number | null>(null);
   const isSyncingRef = useRef(false);
 
+  const showStatusMessage = useCallback((message: string) => {
+    if (statusTimerRef.current) window.clearTimeout(statusTimerRef.current);
+    setStatusMessage(message);
+    statusTimerRef.current = window.setTimeout(() => setStatusMessage(null), 3500);
+  }, []);
+
+  const persistShiftState = useCallback((empId: string, state: ShiftState) => {
+    localStorage.setItem(getShiftStorageKey(empId), JSON.stringify(state));
+  }, []);
+
+  const refreshShiftStateFromServer = useCallback(async (emp: Employee) => {
+    try {
+      const remote = await fetchShiftState(emp.id);
+      if (!remote) return;
+      setShiftState((prev) => {
+        const merged = mergeShiftState(prev, remote);
+        persistShiftState(emp.id, merged);
+        return merged;
+      });
+    } catch (error) {
+      console.warn('[Shift] Failed to refresh shift state:', error);
+    }
+  }, [persistShiftState]);
+
   useEffect(() => {
     const init = async () => {
       await storageService.init();
       const storedId = localStorage.getItem(STORAGE_KEYS.EMPLOYEE_ID);
       const storedName = localStorage.getItem(STORAGE_KEYS.EMPLOYEE_NAME);
       const storedLocation = localStorage.getItem(STORAGE_KEYS.EMPLOYEE_LOCATION);
+
       if (storedId && storedName) {
-        setEmployee({ id: storedId, name: storedName, locationName: storedLocation || undefined });
+        const emp: Employee = {
+          id: storedId,
+          name: storedName,
+          locationName: storedLocation || undefined,
+        };
+        setEmployee(emp);
         setShiftState(normalizeShiftState(localStorage.getItem(getShiftStorageKey(storedId))));
       }
+
       setInitialized(true);
     };
+
     void init();
   }, []);
 
@@ -124,31 +182,39 @@ export default function App() {
       setShiftState(createInitialShiftState());
       return;
     }
+
     startLocationWatch();
     setShiftState(normalizeShiftState(localStorage.getItem(getShiftStorageKey(employee.id))));
-  }, [employee]);
+    void refreshShiftStateFromServer(employee);
+  }, [employee, refreshShiftStateFromServer]);
 
   useEffect(() => {
     if (!employee) return;
-    localStorage.setItem(getShiftStorageKey(employee.id), JSON.stringify(shiftState));
-  }, [employee, shiftState]);
+    persistShiftState(employee.id, shiftState);
+  }, [employee, shiftState, persistShiftState]);
 
   const syncPendingEntries = useCallback(async () => {
     if (isSyncingRef.current || !navigator.onLine) return;
     isSyncingRef.current = true;
+
     try {
       const pending = await storageService.getPendingEntries();
       for (const entry of pending) {
-        if (await syncEntryToServer(entry, { offlineSync: true })) {
+        const synced = await syncEntryToServer(entry, { offlineSync: true });
+        if (synced) {
           await storageService.markAsSynced(entry.id);
         }
+      }
+
+      if (employee) {
+        await refreshShiftStateFromServer(employee);
       }
     } catch (err) {
       console.error('[Sync] Failed:', err);
     } finally {
       isSyncingRef.current = false;
     }
-  }, []);
+  }, [employee, refreshShiftStateFromServer]);
 
   useEffect(() => {
     const onOnline = () => {
@@ -167,56 +233,33 @@ export default function App() {
     };
   }, [syncPendingEntries]);
 
-  useEffect(() => {
-    return () => {
-      if (statusTimerRef.current) window.clearTimeout(statusTimerRef.current);
-    };
+  useEffect(() => () => {
+    if (statusTimerRef.current) window.clearTimeout(statusTimerRef.current);
   }, []);
 
-  const showStatusMessage = (message: string) => {
-    if (statusTimerRef.current) window.clearTimeout(statusTimerRef.current);
-    setStatusMessage(message);
-    statusTimerRef.current = window.setTimeout(() => setStatusMessage(null), 3000);
-  };
-
-  const fireBreakReminder = useCallback(async () => {
-    if (!employee) return;
-    const notified = await showLocalNotification(
-      'Break Reminder',
-      'Please take a break now!',
-      '/'
-    );
-    if (notified) {
-      showStatusMessage('Break reminder sent.');
+  const ensureNotificationsReady = useCallback(async () => {
+    try {
+      const subscribed = await isSubscribed();
+      if (!subscribed) {
+        await requestAndSubscribe();
+      }
+    } catch (error) {
+      console.warn('[Push] Subscription refresh failed:', error);
     }
-    setShiftState((prev) => ({ ...prev, breakReminderSent: true }));
-  }, [employee]);
+  }, []);
 
-  useEffect(() => {
-    if (!employee) return;
-    if (shiftState.phase !== 'needs_clock_out') return;
-    if (shiftState.breakReminderSent) return;
-    if (!shiftState.breakReminderAt) return;
-    if (shiftState.breakStartedAt || shiftState.postBreakClockInAt) return;
-
-    const delay = shiftState.breakReminderAt - Date.now();
-    if (delay <= 0) {
-      void fireBreakReminder();
-      return;
-    }
-
-    const timer = window.setTimeout(() => void fireBreakReminder(), Math.min(delay, 2_147_000_000));
-    return () => window.clearTimeout(timer);
-  }, [employee, fireBreakReminder, shiftState]);
-
-  const handleLogin = (emp: Employee) => {
+  const handleLogin = async (emp: Employee) => {
     localStorage.setItem(STORAGE_KEYS.EMPLOYEE_ID, emp.id);
     localStorage.setItem(STORAGE_KEYS.EMPLOYEE_NAME, emp.name);
     localStorage.setItem(STORAGE_KEYS.EMPLOYEE_LOCATION, emp.locationName ?? '');
+
     setEmployee(emp);
     setShiftState(normalizeShiftState(localStorage.getItem(getShiftStorageKey(emp.id))));
-    showStatusMessage('Signed in successfully');
+    showStatusMessage('Signed in successfully.');
+
+    void ensureNotificationsReady();
     void syncPendingEntries();
+    void refreshShiftStateFromServer(emp);
   };
 
   const handleLogout = () => {
@@ -225,27 +268,52 @@ export default function App() {
     localStorage.removeItem(STORAGE_KEYS.EMPLOYEE_LOCATION);
     setEmployee(null);
     setAction(null);
+    setShiftState(createInitialShiftState());
+  };
+
+  const handleActionRequest = async (targetAction: ActionType) => {
+    const ok = await ensureLocationPermission();
+    if (!ok) {
+      showStatusMessage('Please turn on location and allow access before proceeding.');
+      return;
+    }
+    setAction(targetAction);
   };
 
   const handleActionComplete = async (entry: ClockEntry): Promise<boolean> => {
-    await storageService.saveEntry(entry);
-    setShiftState((prev) => applyShiftTransition(prev, entry.action, entry.timestamp));
+    const normalizedEntry: ClockEntry = {
+      ...entry,
+      location: entry.location
+        ? {
+          ...entry.location,
+          address: entry.location.address?.trim() ? entry.location.address : 'Not found',
+        }
+        : null,
+      synced: false,
+    };
 
-    let synced = false;
-    if (isOnline) {
-      synced = await syncEntryToServer(entry, { offlineSync: false });
-      if (synced) await storageService.markAsSynced(entry.id);
-    }
-    return synced;
+    await storageService.saveEntry(normalizedEntry);
+    setShiftState((prev) => applyShiftTransition(prev, normalizedEntry.action, normalizedEntry.timestamp));
+
+    void (async () => {
+      try {
+        if (!navigator.onLine) return;
+        const synced = await syncEntryToServer(normalizedEntry, { offlineSync: false });
+        if (synced) {
+          await storageService.markAsSynced(normalizedEntry.id);
+          if (employee) await refreshShiftStateFromServer(employee);
+        }
+      } catch (error) {
+        console.warn('[Action] Background upload failed:', error);
+      }
+    })();
+
+    return true;
   };
 
-  const handleActionDone = (synced: boolean, completedAction: ActionType) => {
+  const handleActionDone = (_synced: boolean, completedAction: ActionType) => {
     setAction(null);
-    showStatusMessage(
-      synced
-        ? `${completedAction} saved successfully.`
-        : `${completedAction} saved locally — will sync when online.`
-    );
+    showStatusMessage(`${completedAction} saved. Upload continues in background.`);
   };
 
   const handleEndBreak = () => {
@@ -253,12 +321,11 @@ export default function App() {
     showStatusMessage('Break ended. Please clock in to resume work.');
   };
 
-  const nextAction: ActionType | null =
-    shiftState.phase === 'needs_clock_in'
-      ? 'Clock In'
-      : shiftState.phase === 'needs_clock_out'
-        ? 'Clock Out'
-        : null;
+  const nextAction: ActionType | null = useMemo(() => {
+    if (shiftState.phase === 'needs_clock_in') return 'Clock In';
+    if (shiftState.phase === 'needs_clock_out') return 'Clock Out';
+    return null;
+  }, [shiftState.phase]);
 
   const breakEndsAt = shiftState.phase === 'on_break' && shiftState.breakStartedAt
     ? shiftState.breakStartedAt + BREAK_MS
@@ -268,7 +335,7 @@ export default function App() {
   if (isAdmin) return <AdminPanel />;
 
   if (!initialized) {
-    return <div className="min-h-dvh flex items-center justify-center bg-slate-900 text-white">Loading…</div>;
+    return <div className="flex min-h-dvh items-center justify-center bg-slate-950 text-white">Loading…</div>;
   }
 
   if (!employee) return <Login onLogin={handleLogin} />;
@@ -289,7 +356,7 @@ export default function App() {
     <Dashboard
       employee={employee}
       isOnline={isOnline}
-      onActionSelect={setAction}
+      onActionSelect={handleActionRequest}
       onLogout={handleLogout}
       statusMessage={statusMessage}
       nextAction={nextAction}

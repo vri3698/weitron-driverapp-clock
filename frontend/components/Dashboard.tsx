@@ -57,7 +57,7 @@ function requestLocationPermission(): Promise<boolean> {
     navigator.geolocation.getCurrentPosition(
       () => resolve(true),
       () => resolve(false),
-      { enableHighAccuracy: true, timeout: 15_000, maximumAge: 0 }
+      { enableHighAccuracy: true, timeout: 15_000, maximumAge: 0 },
     );
   });
 }
@@ -85,12 +85,9 @@ export function Dashboard({
   const [now, setNow] = useState(Date.now());
 
   const showIOSInstallPrompt = notifStatus === 'unsupported' && isIOS() && !isStandalone();
-
   const setupDoneKey = useMemo(() => `driver_setup_done_${employee.id}`, [employee.id]);
   const locationPrefKey = useMemo(() => `driver_pref_location_${employee.id}`, [employee.id]);
   const notifPrefKey = useMemo(() => `driver_pref_notif_${employee.id}`, [employee.id]);
-  const setupComplete = locationReady && notifReady;
-  const actionsLocked = !setupComplete;
 
   useEffect(() => {
     const refresh = async () => {
@@ -149,8 +146,9 @@ export function Dashboard({
       setSetupMsg('Employee ID is required before clock actions.');
       return;
     }
-    if (actionsLocked) {
-      setSetupMsg('Please enable location and notifications before clock actions.');
+    if (!locationReady) {
+      setSetupMsg('Please turn on location before proceeding.');
+      void handleEnableLocation();
       return;
     }
     onActionSelect(targetAction);
@@ -159,7 +157,7 @@ export function Dashboard({
   const breakRemaining = isOnBreak && breakEndsAt ? formatRemaining(breakEndsAt - now) : '00:00';
 
   return (
-    <div className="min-h-dvh bg-[radial-gradient(circle_at_top,_rgba(99,102,241,0.18),_transparent_55%)] bg-slate-950 px-4 text-white">
+    <div className="min-h-dvh bg-[radial-gradient(circle_at_top,rgba(99,102,241,0.18),transparent_55%)] bg-slate-950 px-4 text-white">
       <div
         className="mx-auto flex min-h-dvh max-w-md flex-col"
         style={{
@@ -172,15 +170,10 @@ export function Dashboard({
             <div className="flex items-start justify-between gap-3">
               <div className="min-w-0">
                 <div className="-mt-1 mb-2">
-                  <img
-                    src="/weitron-logo.jpg"
-                    alt="Weitron"
-                    className="h-12 w-auto object-contain"
-                  />
+                  <img src="/weitron-logo.jpg" alt="Weitron" className="h-12 w-auto object-contain" />
                 </div>
                 <p className="text-sm text-slate-400">{employee.id}</p>
                 <p className="text-[2rem] font-semibold leading-tight text-white">{employee.name}</p>
-
                 {employee.locationName ? (
                   <div className="mt-2 flex items-center gap-2 text-sm text-slate-400">
                     <MapPin size={16} />
@@ -188,7 +181,6 @@ export function Dashboard({
                   </div>
                 ) : null}
               </div>
-
               <button
                 onClick={onLogout}
                 className="inline-flex shrink-0 items-center gap-2 whitespace-nowrap rounded-full border border-slate-700 bg-slate-900/40 px-4 py-2.5 text-sm font-medium text-slate-200 transition hover:bg-slate-700"
@@ -206,12 +198,9 @@ export function Dashboard({
             </div>
           ) : null}
 
-          {!setupComplete || !localStorage.getItem(setupDoneKey) ? (
+          {(!localStorage.getItem(setupDoneKey) || !notifReady || !locationReady) ? (
             <div className="rounded-[28px] border border-indigo-700/40 bg-indigo-950/32 p-4">
-              <p className="mb-3 text-sm font-semibold text-indigo-200">
-                Complete setup before first clock action
-              </p>
-
+              <p className="mb-3 text-sm font-semibold text-indigo-200">Recommended setup</p>
               <div className="grid gap-3">
                 {!locationReady ? (
                   <button
@@ -233,22 +222,22 @@ export function Dashboard({
                     {notifStatus === 'loading' ? 'Setting up…' : 'Turn on notifications'}
                   </button>
                 ) : null}
-              </div>
 
-              {showIOSInstallPrompt ? (
-                <div className="mt-3 rounded-2xl border border-indigo-800/50 bg-slate-900/40 p-3">
-                  <div className="mb-2 flex items-center gap-2 text-sm font-semibold text-indigo-300">
-                    <Share size={15} />
-                    Add to Home Screen for notifications
+                {showIOSInstallPrompt ? (
+                  <div className="mt-3 rounded-2xl border border-indigo-800/50 bg-slate-900/40 p-3">
+                    <div className="mb-2 flex items-center gap-2 text-sm font-semibold text-indigo-300">
+                      <Share size={15} />
+                      Add to Home Screen for notifications
+                    </div>
+                    <ol className="space-y-1 text-xs leading-5 text-slate-400">
+                      <li>1. Tap Share in Safari</li>
+                      <li>2. Tap Add to Home Screen</li>
+                      <li>3. Open the app from home screen</li>
+                      <li>4. Return here and enable notifications</li>
+                    </ol>
                   </div>
-                  <ol className="space-y-1 text-xs leading-5 text-slate-400">
-                    <li>1. Tap Share in Safari</li>
-                    <li>2. Tap Add to Home Screen</li>
-                    <li>3. Open the app from home screen</li>
-                    <li>4. Return here and enable notifications</li>
-                  </ol>
-                </div>
-              ) : null}
+                ) : null}
+              </div>
             </div>
           ) : null}
 
@@ -260,50 +249,36 @@ export function Dashboard({
                   Break in progress
                 </div>
                 <p className="mb-2 text-3xl font-bold tracking-wider text-amber-200">{breakRemaining}</p>
-                <p className="mb-3 text-xs leading-5 text-amber-100/80">
-                  30-minute break timer is running.
-                </p>
-                <button
-                  onClick={() => handleActionClick('Clock In')}
-                  className="flex w-full items-center justify-center gap-2 whitespace-nowrap rounded-[24px] bg-indigo-600 px-4 py-4 text-base font-semibold text-white transition hover:bg-indigo-500 active:scale-[0.98]"
-                >
-                  <LogIn size={20} />
-                  End Break & Clock In
-                </button>
+                <p className="mb-3 text-xs leading-5 text-amber-100/80">30-minute break timer is running.</p>
               </>
             ) : (
-              <>
-                <div className="mb-3 flex items-center gap-2 text-sm font-medium text-slate-300">
-                  <Clock3 size={16} />
-                  Driver action
-                </div>
-
-                <div className="grid grid-cols-2 gap-3">
-                  <button
-                    onClick={() => handleActionClick('Clock In')}
-                    disabled={actionsLocked || !employee?.id?.trim()}
-                    className="flex items-center justify-center gap-2 whitespace-nowrap rounded-[24px] bg-emerald-700/80 px-4 py-4 text-base font-semibold text-white transition hover:bg-emerald-600 active:scale-[0.98] disabled:cursor-not-allowed disabled:opacity-60"
-                  >
-                    <LogIn size={20} />
-                    Clock In
-                  </button>
-
-                  <button
-                    onClick={() => handleActionClick('Clock Out')}
-                    disabled={actionsLocked || !employee?.id?.trim()}
-                    className="flex items-center justify-center gap-2 whitespace-nowrap rounded-[24px] bg-rose-600 px-4 py-4 text-base font-semibold text-white transition hover:bg-rose-500 active:scale-[0.98] disabled:cursor-not-allowed disabled:opacity-60"
-                  >
-                    <LogOut size={20} />
-                    Clock Out
-                  </button>
-                </div>
-              </>
+              <div className="mb-3 flex items-center gap-2 text-sm font-medium text-slate-300">
+                <Clock3 size={16} />
+                Driver action
+              </div>
             )}
+
+            <div className="grid grid-cols-2 gap-3">
+              <button
+                onClick={() => handleActionClick('Clock In')}
+                disabled={!employee?.id?.trim()}
+                className="flex items-center justify-center gap-2 whitespace-nowrap rounded-[24px] bg-emerald-700/80 px-4 py-4 text-base font-semibold text-white transition hover:bg-emerald-600 active:scale-[0.98] disabled:cursor-not-allowed disabled:opacity-60"
+              >
+                <LogIn size={20} />
+                Clock In
+              </button>
+              <button
+                onClick={() => handleActionClick('Clock Out')}
+                disabled={!employee?.id?.trim()}
+                className="flex items-center justify-center gap-2 whitespace-nowrap rounded-[24px] bg-rose-600 px-4 py-4 text-base font-semibold text-white transition hover:bg-rose-500 active:scale-[0.98] disabled:cursor-not-allowed disabled:opacity-60"
+              >
+                <LogOut size={20} />
+                Clock Out
+              </button>
+            </div>
           </div>
 
-          {setupMsg ? (
-            <p className="px-1 text-center text-xs leading-5 text-slate-400">{setupMsg}</p>
-          ) : null}
+          {setupMsg ? <p className="px-1 text-center text-xs leading-5 text-slate-400">{setupMsg}</p> : null}
 
           <div className="mt-auto flex items-end justify-center pt-1 text-sm">
             <div className={`flex items-center gap-2 ${isOnline ? 'text-emerald-400' : 'text-rose-400'}`}>

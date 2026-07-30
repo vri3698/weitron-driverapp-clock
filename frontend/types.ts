@@ -25,3 +25,18 @@ export interface Employee {
   name: string;
   locationName?: string;
 }
+
+export type ShiftPhase = 'needs_clock_in' | 'needs_clock_out' | 'on_break' | 'day_complete';
+
+export interface ShiftState {
+  dateKey: string;
+  phase: ShiftPhase;
+  firstClockInAt?: number;
+  effectiveShiftStartAt?: number;
+  breakReminderAt?: number;
+  breakReminderSent?: boolean;
+  breakStartedAt?: number;
+  postBreakClockInAt?: number;
+  dayCompletedAt?: number;
+  source?: 'local' | 'server';
+}
