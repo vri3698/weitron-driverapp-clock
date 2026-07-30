@@ -1,28 +1,5 @@
-# Vertex AI Studio Frontend App with Node.js Backend
+# Driver clock in and clock out app
 
-This repository contains a frontend and a Node.js backend, designed to run together.
-The backend acts as a proxy, handling Google Cloud API calls.
-
-This project is intended for demonstration and prototyping purposes only.
-It is not intended for use in a production environment.
-
-## Prerequisites
-
-To run this application locally, you need:
-
-*   **[Google Cloud SDK / gcloud CLI](https://cloud.google.com/sdk/docs/install)**: Follow the instructions to install the SDK.
-
-*   **gcloud Initialization**:
-    *   Initialize the gcloud CLI:
-        ```bash
-        gcloud init
-        ```
-    *   Authenticate for Application Default Credentials (needed to call Google Cloud APIs):
-        ```bash
-        gcloud auth application-default login
-        ```
-
-*   **Node.js and npm**: Ensure you have Node.js and its package manager, `npm`, installed on your machine.
 
 ## Project Structure
 
