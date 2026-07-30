@@ -66,38 +66,30 @@ function applyShiftTransition(prev: ShiftState, action: ActionType, timestamp: n
       };
     }
 
-    if (prev.phase === 'needs_clock_in') {
+    return {
+      ...prev,
+      phase: 'needs_clock_out',
+      postBreakClockInAt: timestamp,
+    };
+  }
+
+  if (action === 'Clock Out') {
+    // First clock-out after first clock-in starts break mode
+    if (!prev.breakStartedAt && prev.firstClockInAt && !prev.postBreakClockInAt) {
       return {
         ...prev,
-        phase: 'needs_clock_out',
-        postBreakClockInAt: timestamp,
+        phase: 'on_break',
+        breakStartedAt: timestamp,
       };
     }
 
-    return prev;
-  }
-
-  if (prev.phase !== 'needs_clock_out') return prev;
-
-  // First clock-out after first clock-in starts break mode
-  if (!prev.breakStartedAt && prev.firstClockInAt && !prev.postBreakClockInAt) {
-    return {
-      ...prev,
-      phase: 'on_break',
-      breakStartedAt: timestamp,
-    };
-  }
-
-  // Next clock out
-  if (prev.postBreakClockInAt) {
     return {
       ...prev,
       phase: 'needs_clock_in',
-      dayCompletedAt: undefined
     };
   }
 
-  return { ...prev, phase: 'needs_clock_in' };
+  return prev;
 }
 
 export default function App() {

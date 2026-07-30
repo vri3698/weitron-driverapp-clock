@@ -20,10 +20,10 @@ interface DashboardProps {
   onActionSelect: (action: ActionType) => void;
   onLogout: () => void;
   statusMessage: string | null;
-  nextAction: ActionType | null;
+  nextAction?: ActionType | null;
   isOnBreak: boolean;
   breakEndsAt: number | null;
-  onEndBreak: () => void;
+  onEndBreak?: () => void;
 }
 
 function isStandalone(): boolean {
@@ -75,10 +75,8 @@ export function Dashboard({
   onActionSelect,
   onLogout,
   statusMessage,
-  nextAction,
   isOnBreak,
   breakEndsAt,
-  onEndBreak,
 }: DashboardProps) {
   const [locationReady, setLocationReady] = useState(false);
   const [notifReady, setNotifReady] = useState(false);
@@ -92,7 +90,7 @@ export function Dashboard({
   const locationPrefKey = useMemo(() => `driver_pref_location_${employee.id}`, [employee.id]);
   const notifPrefKey = useMemo(() => `driver_pref_notif_${employee.id}`, [employee.id]);
   const setupComplete = locationReady && notifReady;
-  const actionsLocked = !setupComplete || isOnBreak;
+  const actionsLocked = !setupComplete;
 
   useEffect(() => {
     const refresh = async () => {
@@ -146,8 +144,7 @@ export function Dashboard({
     setSetupMsg(ready ? 'Notifications enabled.' : (error ?? 'Could not enable notifications.'));
   };
 
-  const handleActionClick = () => {
-    if (!nextAction) return;
+  const handleActionClick = (targetAction: ActionType) => {
     if (!employee?.id?.trim()) {
       setSetupMsg('Employee ID is required before clock actions.');
       return;
@@ -156,11 +153,10 @@ export function Dashboard({
       setSetupMsg('Please enable location and notifications before clock actions.');
       return;
     }
-    onActionSelect(nextAction);
+    onActionSelect(targetAction);
   };
 
   const breakRemaining = isOnBreak && breakEndsAt ? formatRemaining(breakEndsAt - now) : '00:00';
-  const hasFinishedDay = nextAction === null && !isOnBreak;
 
   return (
     <div className="min-h-dvh bg-[radial-gradient(circle_at_top,_rgba(99,102,241,0.18),_transparent_55%)] bg-slate-950 px-4 text-white">
@@ -268,10 +264,11 @@ export function Dashboard({
                   30-minute break timer is running.
                 </p>
                 <button
-                  onClick={onEndBreak}
-                  className="w-full whitespace-nowrap rounded-[24px] bg-indigo-600 px-4 py-4 text-base font-semibold text-white transition hover:bg-indigo-500"
+                  onClick={() => handleActionClick('Clock In')}
+                  className="flex w-full items-center justify-center gap-2 whitespace-nowrap rounded-[24px] bg-indigo-600 px-4 py-4 text-base font-semibold text-white transition hover:bg-indigo-500 active:scale-[0.98]"
                 >
-                  End break
+                  <LogIn size={20} />
+                  End Break & Clock In
                 </button>
               </>
             ) : (
@@ -281,24 +278,25 @@ export function Dashboard({
                   Driver action
                 </div>
 
-                {hasFinishedDay ? (
-                  <p className="rounded-2xl bg-emerald-900/30 px-4 py-4 text-center text-sm text-emerald-300">
-                    Day complete. You can clock in again tomorrow.
-                  </p>
-                ) : (
+                <div className="grid grid-cols-2 gap-3">
                   <button
-                    onClick={handleActionClick}
-                    disabled={actionsLocked || !nextAction || !employee?.id?.trim()}
-                    className={`flex w-full items-center justify-center gap-2 whitespace-nowrap rounded-[24px] px-4 py-4 text-[1.15rem] font-semibold transition disabled:cursor-not-allowed disabled:opacity-60 ${
-                      nextAction === 'Clock In'
-                        ? 'bg-emerald-700/70 hover:bg-emerald-600/80'
-                        : 'bg-rose-600 hover:bg-rose-500'
-                    }`}
+                    onClick={() => handleActionClick('Clock In')}
+                    disabled={actionsLocked || !employee?.id?.trim()}
+                    className="flex items-center justify-center gap-2 whitespace-nowrap rounded-[24px] bg-emerald-700/80 px-4 py-4 text-base font-semibold text-white transition hover:bg-emerald-600 active:scale-[0.98] disabled:cursor-not-allowed disabled:opacity-60"
                   >
-                    {nextAction === 'Clock In' ? <LogIn size={20} /> : <LogOut size={20} />}
-                    {nextAction ?? 'Unavailable'}
+                    <LogIn size={20} />
+                    Clock In
                   </button>
-                )}
+
+                  <button
+                    onClick={() => handleActionClick('Clock Out')}
+                    disabled={actionsLocked || !employee?.id?.trim()}
+                    className="flex items-center justify-center gap-2 whitespace-nowrap rounded-[24px] bg-rose-600 px-4 py-4 text-base font-semibold text-white transition hover:bg-rose-500 active:scale-[0.98] disabled:cursor-not-allowed disabled:opacity-60"
+                  >
+                    <LogOut size={20} />
+                    Clock Out
+                  </button>
+                </div>
               </>
             )}
           </div>

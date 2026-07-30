@@ -39,19 +39,33 @@ export function Camera({ onCapture, onCancel }: CameraProps) {
 
   return (
     <div className="fixed inset-0 z-50 flex flex-col bg-black text-white">
-      <div className="flex items-center justify-between p-3">
-        <button onClick={onCancel} className="rounded bg-slate-800 px-3 py-2">
+      <div
+        className="flex items-center justify-between px-4 pb-3"
+        style={{ paddingTop: 'max(1.25rem, env(safe-area-inset-top))' }}
+      >
+        <button
+          onClick={onCancel}
+          className="flex items-center justify-center rounded-full border border-white/20 bg-slate-800/90 px-4 py-2 text-sm font-semibold text-white shadow-md active:bg-slate-700"
+        >
           Cancel
         </button>
-        <span className="text-sm">Take photo</span>
+        <span className="text-base font-medium text-slate-200">Take photo</span>
+        <div className="w-16" />
       </div>
       {error ? (
         <div className="flex flex-1 items-center justify-center p-4 text-center">{error}</div>
       ) : (
         <video ref={videoRef} autoPlay playsInline muted className="flex-1 object-cover" />
       )}
-      <div className="p-4">
-        <button onClick={handleCapture} disabled={!!error} className="w-full rounded bg-white px-3 py-3 text-black disabled:opacity-50">
+      <div
+        className="p-4"
+        style={{ paddingBottom: 'max(1.25rem, env(safe-area-inset-bottom))' }}
+      >
+        <button
+          onClick={handleCapture}
+          disabled={!!error}
+          className="w-full rounded-2xl bg-white py-3.5 text-base font-bold text-slate-900 transition active:scale-[0.98] disabled:opacity-50"
+        >
           Capture
         </button>
       </div>
